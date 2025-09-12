@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface FormData {
   name: string;
@@ -12,6 +12,8 @@ interface FormData {
 }
 
 export default function SignUp() {
+  const navigate = useNavigate(); // useNavigate 훅 추가
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     nickname: '',
@@ -33,7 +35,7 @@ export default function SignUp() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // 백엔드 서버 주소를 여기에 입력해주세요.
-  const API_BASE_URL = 'http://localhost:8080/member/signup';
+  const API_BASE_URL = 'http://localhost:8080';
 
   // 입력 필드 변경 핸들러
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -93,7 +95,7 @@ export default function SignUp() {
 
     try {
       // 서버가 기대하는 JSON 형식으로 데이터 전송
-      const response = await fetch(`${API_BASE_URL}`, {
+      const response = await fetch(`${API_BASE_URL}/member/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +113,9 @@ export default function SignUp() {
       if (response.ok) {
         setMessage('회원가입이 성공적으로 완료되었습니다!');
         setMessageColor('text-green-600');
-        // TODO: 회원가입 성공 후 프로필 이미지 업로드 로직 추가 (별도의 API 필요)
+        
+        // 회원가입 성공 시 로그인 페이지로 이동
+        navigate('/login');
       } else {
         const errorData = await response.json();
         setMessage(`회원가입 실패: ${errorData.message}`);

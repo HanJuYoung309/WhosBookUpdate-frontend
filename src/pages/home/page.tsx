@@ -1,6 +1,5 @@
-
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Curator {
   id: number;
@@ -27,7 +26,26 @@ interface Curation {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'curators' | 'curations'>('curations');
+  const [showNotification, setShowNotification] = useState(false);
+
+  // 이 부분에 실제 로그인 상태 관리 로직을 구현하세요 (예: Context API, Redux 등).
+  // const isLoggedIn = useAuth().isLoggedIn;
+  const isLoggedIn = false; // 현재 예제에서는 로그인하지 않은 상태를 시뮬레이션합니다.
+
+  // '큐레이터 되기' 링크 클릭 핸들러
+  const handleCurationLinkClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      setShowNotification(true);
+      
+      setTimeout(() => {
+        setShowNotification(false);
+        navigate('/login');
+      }, 2000);
+    }
+  };
 
   const topCurators: Curator[] = [
     {
@@ -207,6 +225,7 @@ export default function Home() {
               </Link>
               <Link 
                 to="/curation/create"
+                onClick={handleCurationLinkClick}
                 className="border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors text-lg font-medium cursor-pointer whitespace-nowrap text-center"
               >
                 큐레이터 되기
@@ -432,6 +451,24 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* 로그인 알림 메시지 */}
+      {showNotification && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black text-white px-8 py-4 rounded-lg shadow-2xl z-50 transition-opacity duration-300 animate-fadeInOut">
+          <p className="text-center">로그인 후 이용 가능합니다.</p>
+        </div>
+      )}
+
+      {/* CSS 애니메이션 스타일 (Tailwind CSS를 보완하기 위한 기본 스타일) */}
+      <style>{`
+        @keyframes fadeInOut {
+          0%, 100% { opacity: 0; }
+          10%, 90% { opacity: 1; }
+        }
+        .animate-fadeInOut {
+          animation: fadeInOut 2s ease-in-out forwards;
+        }
+      `}</style>
     </div>
   );
 }

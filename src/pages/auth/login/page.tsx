@@ -1,13 +1,34 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+// 폰트 및 아이콘 CDN 링크
+const cdnLinks = `
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+`;
 
-export default function Login() {
+// 동적으로 CSS를 추가하여 remixon 아이콘을 로드합니다.
+if (typeof document !== 'undefined') {
+  const head = document.head || document.getElementsByTagName('head')[0];
+  const style = document.createElement('style');
+  style.appendChild(document.createTextNode(cdnLinks));
+  head.appendChild(style);
+}
+
+// 메인 앱 컴포넌트
+export default function App() {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const navigate = useNavigate(); // useNavigate 훅을 컴포넌트 내부에서 호출
+
+  const API_URL = 'http://localhost:8080/member';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -17,27 +38,79 @@ export default function Login() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // 로그인 로직 구현 예정
-    console.log('로그인 시도:', formData);
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setUser({ email: formData.email });
+        setMessage('로그인에 성공했습니다!');
+        
+        // 로그인 성공 후 메인 페이지로 이동
+        navigate('/'); 
+
+      } else {
+        const errorText = await response.text();
+        setMessage(`로그인 실패: ${errorText}`);
+      }
+    } catch (error) {
+      setMessage('네트워크 오류 또는 서버에 연결할 수 없습니다.');
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSocialLogin = (provider: 'google' | 'kakao') => {
-    // 소셜 로그인 로직 구현 예정
+  const handleLogout = () => {
+    setUser(null);
+    setMessage('로그아웃되었습니다.');
+  };
+
+  const handleSocialLogin = (provider: string) => {
+    setMessage(`${provider} 로그인 기능은 현재 준비 중입니다.`);
     console.log(`${provider} 로그인 시도`);
   };
 
+  // 로그인 성공 시 보여줄 메인 화면
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 text-center">
+        <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-lg">
+          <h2 className="text-3xl font-bold text-gray-900">환영합니다!</h2>
+          <p className="text-gray-600">성공적으로 로그인되었습니다.</p>
+          <p className="text-sm text-gray-500 break-all">이메일: {user.email}</p>
+          <button
+            onClick={handleLogout}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium cursor-pointer"
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 로그인 페이지
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <Link to="/" className="inline-block">
+          <a href="#" className="inline-block">
             <h1 className="text-3xl font-bold text-blue-600 mb-2" style={{ fontFamily: '"Pacifico", serif' }}>
               후즈북
             </h1>
-          </Link>
+          </a>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
           <p className="text-gray-600">책과 함께하는 특별한 여행을 시작하세요</p>
         </div>
@@ -81,7 +154,7 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
-                  <i className={`w-5 h-5 flex items-center justify-center ${showPassword ? 'ri-eye-off-line' : 'ri-eye-line'}`}></i>
+                  <i className={`ri-eye-line ${showPassword ? 'ri-eye-off-line' : 'ri-eye-line'}`}></i>
                 </button>
               </div>
             </div>
@@ -99,11 +172,19 @@ export default function Login() {
               </a>
             </div>
 
+            {message && (
+              <div className={`p-3 rounded-lg text-sm text-center ${message.includes('성공') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {message}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium cursor-pointer whitespace-nowrap"
+              disabled={isLoading}
+              className={`w-full py-3 px-4 rounded-lg font-medium whitespace-nowrap transition-colors
+                ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer'}`}
             >
-              로그인
+              {isLoading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
@@ -122,7 +203,7 @@ export default function Login() {
           {/* Social Login */}
           <div className="mt-6 space-y-3">
             <button
-              onClick={() => handleSocialLogin('google')}
+              onClick={() => handleSocialLogin('구글')}
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
             >
               <i className="ri-google-fill w-5 h-5 flex items-center justify-center text-red-500 mr-3"></i>
@@ -130,7 +211,7 @@ export default function Login() {
             </button>
             
             <button
-              onClick={() => handleSocialLogin('kakao')}
+              onClick={() => handleSocialLogin('카카오')}
               className="w-full flex items-center justify-center px-4 py-3 bg-yellow-400 rounded-lg hover:bg-yellow-500 transition-colors cursor-pointer whitespace-nowrap"
             >
               <i className="ri-kakao-talk-fill w-5 h-5 flex items-center justify-center text-brown-600 mr-3"></i>
@@ -142,9 +223,9 @@ export default function Login() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               아직 계정이 없으신가요?{' '}
-              <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
                 회원가입
-              </Link>
+              </a>
             </p>
           </div>
         </div>
