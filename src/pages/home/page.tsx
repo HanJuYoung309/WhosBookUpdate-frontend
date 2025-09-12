@@ -1,5 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, createContext, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+
+// AuthContext를 생성합니다.
+interface AuthContextType {
+  isLoggedIn: boolean;
+  login: () => void;
+  logout: () => void;
+}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// AuthProvider 컴포넌트로 로그인 상태를 관리합니다.
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // 이 함수들은 실제 API 호출로 대체되어야 합니다.
+  const login = () => {
+    // API 호출로 로그인 처리 후, 성공 시 상태를 true로 변경
+    setIsLoggedIn(true);
+  };
+  const logout = () => {
+    // API 호출로 로그아웃 처리 후, 성공 시 상태를 false로 변경
+    setIsLoggedIn(false);
+  };
+
+  const value = { isLoggedIn, login, logout };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// AuthContext를 사용하기 위한 훅
+const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 interface Curator {
   id: number;
@@ -25,14 +61,11 @@ interface Curation {
   coverImage: string;
 }
 
-export default function Home() {
+const HomeContent = () => {
   const navigate = useNavigate();
+  const { isLoggedIn, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'curators' | 'curations'>('curations');
   const [showNotification, setShowNotification] = useState(false);
-
-  // 이 부분에 실제 로그인 상태 관리 로직을 구현하세요 (예: Context API, Redux 등).
-  // const isLoggedIn = useAuth().isLoggedIn;
-  const isLoggedIn = false; // 현재 예제에서는 로그인하지 않은 상태를 시뮬레이션합니다.
 
   // '큐레이터 되기' 링크 클릭 핸들러
   const handleCurationLinkClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
@@ -146,7 +179,7 @@ export default function Home() {
       bookCount: 8,
       tags: ['판타지', '모험', '마법', '판타지소설'],
       createdAt: '2024-01-18',
-      coverImage: 'https://readdy.ai/api/search-image?query=Fantasy%20books%20collection%20with%20magical%20elements%2C%20mystical%20atmosphere%2C%20dragons%20and%20castles%20in%20background%2C%20enchanted%20library%20setting%2C%20purple%20and%20gold%20colors&width=300&height=200&seq=curation4&orientation=landscape'
+      coverImage: 'https://readdy.ai/api/search-image?query=Fantasy%20books%20collection%2C%20mystical%20atmosphere%2C%20dragons%20and%20castles%20in%20background%2C%20enchanted%20library%20setting%2C%20purple%20and%20gold%20colors&width=300&height=200&seq=curation4&orientation=landscape'
     },
     {
       id: 5,
@@ -188,18 +221,31 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Link 
-                to="/login"
-                className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                로그인
-              </Link>
-              <Link 
-                to="/signup"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                회원가입
-              </Link>
+              {isLoggedIn ? (
+                // 로그인 상태일 때 로그아웃 버튼 표시
+                <button
+                  onClick={logout}
+                  className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  로그아웃
+                </button>
+              ) : (
+                // 로그인하지 않은 상태일 때 로그인/회원가입 버튼 표시
+                <>
+                  <Link 
+                    to="/login"
+                    className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    로그인
+                  </Link>
+                  <Link 
+                    to="/signup"
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    회원가입
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -470,5 +516,20 @@ export default function Home() {
         }
       `}</style>
     </div>
+  );
+};
+
+export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+
+  const login = () => setIsLoggedIn(true);
+  const logout = () => setIsLoggedIn(false);
+
+  const authContextValue = { isLoggedIn, login, logout };
+
+  return (
+    <AuthContext.Provider value={authContextValue}>
+      <HomeContent />
+    </AuthContext.Provider>
   );
 }
