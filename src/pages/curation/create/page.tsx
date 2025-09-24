@@ -1,9 +1,7 @@
+import React, { useState, useEffect } from 'react';
 
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-
+// Book 인터페이스: 불필요한 id 필드를 제거하고 isbn을 고유 식별자로 사용
 interface Book {
-  id: string;
   title: string;
   author: string;
   publisher: string;
@@ -12,92 +10,181 @@ interface Book {
   coverImage: string;
 }
 
-export default function CreateCuration() {
-  const navigate = useNavigate();
+// `alert()` 대신 사용할 커스텀 메시지 상태
+const useMessage = () => {
+  const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
+
+  const showMessage = (text: string, error = false) => {
+    setMessage(text);
+    setIsError(error);
+    setTimeout(() => {
+      setMessage('');
+      setIsError(false);
+    }, 3000);
+  };
+
+  return { message, isError, showMessage };
+};
+
+// 메인 앱 컴포넌트
+export default function App() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
+  const [categoryId, setCategoryId] = useState(1);
   const [books, setBooks] = useState<Book[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const { message, isError, showMessage } = useMessage();
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // 로그인 상태를 boolean으로 관리
 
-  // Mock book data for search
-  const mockBooks: Book[] = [
-    {
-      id: '1',
-      title: '미드나잇 라이브러리',
-      author: '매트 헤이그',
-      publisher: '인플루엔셜',
-      isbn: '9788966262939',
-      description: '죽음과 삶 사이에서 펼쳐지는 무한한 가능성의 이야기',
-      coverImage: 'https://readdy.ai/api/search-image?query=Midnight%20Library%20book%20cover%2C%20mystical%20library%20setting%2C%20glowing%20books%2C%20ethereal%20atmosphere%2C%20purple%20and%20blue%20tones%2C%20fantasy%20book%20cover%20design&width=120&height=180&seq=book1&orientation=portrait'
-    },
-    {
-      id: '2',
-      title: '아몬드',
-      author: '손원평',
-      publisher: '창비',
-      isbn: '9788936434267',
-      description: '감정을 느끼지 못하는 소년의 성장 이야기',
-      coverImage: 'https://readdy.ai/api/search-image?query=Korean%20novel%20Almond%20book%20cover%2C%20minimalist%20design%2C%20warm%20colors%2C%20young%20adult%20fiction%2C%20contemporary%20Korean%20literature%20cover&width=120&height=180&seq=book2&orientation=portrait'
-    },
-    {
-      id: '3',
-      title: '원씽',
-      author: '게리 켈러',
-      publisher: '비즈니스북스',
-      isbn: '9788997575916',
-      description: '성공을 이끄는 하나의 원칙',
-      coverImage: 'https://readdy.ai/api/search-image?query=The%20One%20Thing%20business%20book%20cover%2C%20professional%20design%2C%20focus%20concept%2C%20success%20theme%2C%20clean%20layout%2C%20business%20book%20aesthetic&width=120&height=180&seq=book3&orientation=portrait'
+  // 컴포넌트 마운트 시, 로그인 상태 확인
+  // 실제로는 서버의 세션 유효성 검사 API를 호출하는 것이 이상적입니다.
+  useEffect(() => {
+    // 임시로 localStorage에 authToken이 있으면 로그인된 것으로 간주
+    // 세션 기반 인증에서는 이 부분을 서버 API 호출로 대체해야 합니다.
+    const storedAuthToken = localStorage.getItem('authToken');
+    if (storedAuthToken) {
+      setIsLoggedIn(true);
+    } else {
+      setIsLoggedIn(false);
     }
-  ];
+  }, []);
+
+  const [searchResults, setSearchResults] = useState<Book[]>([]);
+
+  // 책 검색 로직 (백엔드 API 호출)
+  useEffect(() => {
+    const fetchBooks = async () => {
+      if (searchQuery.length > 1) {
+        try {
+          const response = await fetch(`http://localhost:8080/api/books/search?query=${searchQuery}`);
+          if (!response.ok) {
+            throw new Error('책 검색에 실패했습니다.');
+          }
+
+          const data = await response.json();
+          const transformedBooks: Book[] = data.documents.map((doc: any) => ({
+            title: doc.title,
+            author: doc.authors.join(', '),
+            publisher: doc.publisher,
+            isbn: doc.isbn,
+            description: doc.contents,
+            coverImage: doc.thumbnail,
+          }));
+
+          setSearchResults(transformedBooks);
+        } catch (error) {
+          console.error("책 검색 API 오류: ", error);
+          showMessage('책 검색 중 오류가 발생했습니다.', true);
+          setSearchResults([]);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    };
+
+    const timerId = setTimeout(() => {
+      fetchBooks();
+    }, 500);
+
+    return () => clearTimeout(timerId);
+  }, [searchQuery]);
 
   const handleAddBook = (book: Book) => {
-    if (!books.find(b => b.id === book.id)) {
+    if (!books.find(b => b.isbn === book.isbn)) {
       setBooks([...books, book]);
     }
     setIsSearchOpen(false);
     setSearchQuery('');
   };
 
-  const handleRemoveBook = (bookId: string) => {
-    setBooks(books.filter(book => book.id !== bookId));
+  const handleRemoveBook = (bookIsbn: string) => {
+    setBooks(books.filter(book => book.isbn !== bookIsbn));
   };
+  
+  const handleSubmit = async () => {
+    // 1. 유효성 검사 - 필수 입력 필드 확인
+    if (!title.trim() || !description.trim()) {
+      showMessage('제목과 설명을 입력해주세요.', true);
+      return;
+    }
+    if (books.length === 0) {
+      showMessage('최소 1권의 책을 추가해주세요.', true);
+      return;
+    }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (title && description && books.length > 0) {
-      // Mock save - in real app would call API
-      alert('큐레이션이 등록되었습니다!');
-      navigate('/');
-    } else {
-      alert('모든 필드를 입력하고 최소 1권의 책을 추가해주세요.');
+    // 2. 로그인 상태 확인 (요청 보내기 전에)
+    if (!isLoggedIn) {
+        showMessage('로그인이 필요합니다. 다시 로그인해주세요.', true);
+        return;
+    }
+
+    // 3. 백엔드로 전송할 데이터 구조
+    const curationData = {
+      title: title,
+      content: description,
+      categoryId: categoryId,
+      tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      books: books.map(book => ({
+        isbn: book.isbn,
+        title: book.title,
+        authors: book.author,
+        publisher: book.publisher,
+      })),
+    };
+
+    console.log('전송할 데이터:', curationData);
+
+    try {
+      const response = await fetch('http://localhost:8080/curation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // 세션 기반 인증은 쿠키로 이루어지므로, Authorization 헤더는 필요 없습니다.
+        },
+        credentials: 'include', // CORS 요청에 쿠키를 포함시키는 옵션
+        body: JSON.stringify(curationData),
+      });
+
+      if (response.status === 201) {
+        showMessage('큐레이션이 성공적으로 등록되었습니다!');
+        setTitle('');
+        setDescription('');
+        setTags('');
+        setCategoryId(1);
+        setBooks([]);
+        setSearchQuery('');
+        setIsSearchOpen(false);
+      } else {
+        const errorText = await response.text();
+        console.error('서버 응답:', errorText);
+        showMessage('큐레이션 등록에 실패했습니다. 서버 오류.', true);
+      }
+    } catch (e) {
+      showMessage('큐레이션 등록에 실패했습니다. 네트워크 오류.', true);
+      console.error("네트워크 오류: ", e);
     }
   };
 
-  const filteredBooks = mockBooks.filter(book =>
-    book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    book.author.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 font-sans">
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link to="/" className="text-2xl font-bold text-blue-600" style={{ fontFamily: '"Pacifico", serif' }}>
+              <a href="#" className="text-2xl font-bold text-blue-600 font-serif">
                 후즈북
-              </Link>
+              </a>
             </div>
             <div className="flex items-center space-x-4">
-              <Link 
-                to="/"
+              <a 
+                href="#"
                 className="text-gray-600 hover:text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer whitespace-nowrap"
               >
                 홈으로
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -109,8 +196,13 @@ export default function CreateCuration() {
           <p className="text-gray-600">독자들에게 추천하고 싶은 책들을 큐레이션해보세요.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Info */}
+        {message && (
+          <div className={`p-4 mb-4 text-sm font-medium rounded-lg text-center ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {message}
+          </div>
+        )}
+
+        <div className="space-y-8">
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">기본 정보</h2>
             
@@ -141,8 +233,27 @@ export default function CreateCuration() {
                   rows={4}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   placeholder="이 큐레이션에 대한 설명을 입력하세요"
-                  required
                 />
+              </div>
+
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                  카테고리 *
+                </label>
+                <select
+                  id="category"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(parseInt(e.target.value))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value={1}>소설</option>
+                  <option value={2}>에세이</option>
+                  <option value={3}>자기계발</option>
+                  <option value={4}>인문</option>
+                  <option value={5}>과학</option>
+                  <option value={6}>예술</option>
+                  <option value={7}>기타</option>
+                </select>
               </div>
 
               <div>
@@ -161,30 +272,28 @@ export default function CreateCuration() {
             </div>
           </div>
 
-          {/* Books Section */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900">책 목록 ({books.length}권)</h2>
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer whitespace-nowrap"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer whitespace-nowrap flex items-center"
               >
-                <i className="ri-add-line w-4 h-4 flex items-center justify-center mr-2"></i>
-                책 추가
+                + 책 추가
               </button>
             </div>
 
             {books.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
-                <i className="ri-book-line w-12 h-12 flex items-center justify-center mx-auto mb-4 text-gray-300"></i>
+                <div className="text-5xl text-gray-300 mb-4">📚</div>
                 <p>아직 추가된 책이 없습니다.</p>
                 <p className="text-sm">책 추가 버튼을 눌러 책을 검색하고 추가해보세요.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {books.map((book) => (
-                  <div key={book.id} className="flex bg-gray-50 rounded-lg p-4">
+                  <div key={book.isbn} className="flex bg-gray-50 rounded-lg p-4">
                     <img
                       src={book.coverImage}
                       alt={book.title}
@@ -197,10 +306,10 @@ export default function CreateCuration() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleRemoveBook(book.id)}
+                      onClick={() => handleRemoveBook(book.isbn)}
                       className="ml-2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 cursor-pointer"
                     >
-                      <i className="ri-close-line w-4 h-4 flex items-center justify-center"></i>
+                      ×
                     </button>
                   </div>
                 ))}
@@ -208,25 +317,24 @@ export default function CreateCuration() {
             )}
           </div>
 
-          {/* Submit Button */}
           <div className="flex justify-end space-x-4">
-            <Link
-              to="/"
+            <button
+              type="button"
               className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
             >
               취소
-            </Link>
+            </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer whitespace-nowrap"
             >
               큐레이션 등록
             </button>
           </div>
-        </form>
+        </div>
       </div>
 
-      {/* Book Search Modal */}
       {isSearchOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
@@ -237,7 +345,7 @@ export default function CreateCuration() {
                   onClick={() => setIsSearchOpen(false)}
                   className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
-                  <i className="ri-close-line w-5 h-5 flex items-center justify-center"></i>
+                  ×
                 </button>
               </div>
               <div className="relative">
@@ -248,19 +356,19 @@ export default function CreateCuration() {
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   placeholder="책 제목이나 저자명을 입력하세요"
                 />
-                <i className="ri-search-line w-5 h-5 flex items-center justify-center absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
               </div>
             </div>
             <div className="p-6 overflow-y-auto max-h-96">
-              {filteredBooks.length === 0 ? (
+              {searchResults.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p>검색 결과가 없습니다.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredBooks.map((book) => (
+                  {searchResults.map((book) => (
                     <div
-                      key={book.id}
+                      key={book.isbn}
                       className="flex items-center p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
                       onClick={() => handleAddBook(book)}
                     >
@@ -274,7 +382,7 @@ export default function CreateCuration() {
                         <p className="text-sm text-gray-600">{book.author}</p>
                         <p className="text-xs text-gray-500">{book.publisher}</p>
                       </div>
-                      <i className="ri-add-line w-5 h-5 flex items-center justify-center text-blue-600"></i>
+                      <span className="text-blue-600 ml-auto">+</span>
                     </div>
                   ))}
                 </div>

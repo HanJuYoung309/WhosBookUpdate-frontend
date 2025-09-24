@@ -1,5 +1,6 @@
 import React, { useState, createContext, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 // AuthContext를 생성합니다.
 interface AuthContextType {
@@ -12,16 +13,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // AuthProvider 컴포넌트로 로그인 상태를 관리합니다.
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
 
-  // 이 함수들은 실제 API 호출로 대체되어야 합니다.
+  // 세션의 유효성을 확인하여 로그인 상태를 업데이트하는 함수
+  const checkLoginStatus = async () => {
+    try {
+      // 세션 쿠키가 유효한지 확인하는 백엔드 API 호출
+      await axios.get('http://localhost:8080/member/me', {
+        withCredentials: true
+      });
+      // 요청 성공 시 세션이 유효하므로 로그인 상태로 설정
+      setIsLoggedIn(true);
+    } catch (error) {
+      // 요청 실패 시 (예: 401 Unauthorized), 세션이 없거나 만료된 것으로 간주
+      setIsLoggedIn(false);
+      console.log("세션이 유효하지 않아 로그아웃 상태로 처리됩니다.");
+    }
+  };
+
+  useEffect(() => {
+    // 컴포넌트가 처음 마운트될 때 로그인 상태를 확인합니다.
+    checkLoginStatus();
+  }, []);
+
   const login = () => {
-    // API 호출로 로그인 처리 후, 성공 시 상태를 true로 변경
+    // 실제 로그인 API 호출 후 상태를 업데이트하는 로직으로 대체되어야 합니다.
     setIsLoggedIn(true);
+    // 로그인 성공 후 메인 페이지로 이동
+    navigate('/');
   };
-  const logout = () => {
-    // API 호출로 로그아웃 처리 후, 성공 시 상태를 false로 변경
+
+const logout = async () => {
+  try {
+    // 서버에 로그아웃 요청
+    await axios.post('http://localhost:8080/logout', {}, {
+      withCredentials: true
+    });
+  } catch (error) {
+    // 오류가 발생해도 로그 만 출력하고 계속 진행
+    //console.warn('서버 로그아웃 요청 실패:', error.message);
+  } finally {
+    // 서버 요청 성공/실패와 상관없이 항상 클라이언트 상태 정리
     setIsLoggedIn(false);
-  };
+    alert('로그아웃되었습니다.');
+    navigate('/');
+  }
+};
 
   const value = { isLoggedIn, login, logout };
 
@@ -37,6 +74,7 @@ const useAuth = () => {
   return context;
 };
 
+// Curator 및 Curation 인터페이스와 데이터는 변경 없음.
 interface Curator {
   id: number;
   name: string;
@@ -79,7 +117,7 @@ const HomeContent = () => {
       }, 2000);
     }
   };
-
+  
   const topCurators: Curator[] = [
     {
       id: 1,
@@ -520,16 +558,10 @@ const HomeContent = () => {
 };
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-
-  const login = () => setIsLoggedIn(true);
-  const logout = () => setIsLoggedIn(false);
-
-  const authContextValue = { isLoggedIn, login, logout };
-
-  return (
-    <AuthContext.Provider value={authContextValue}>
-      <HomeContent />
-    </AuthContext.Provider>
-  );
-}
+    // AuthProvider로 감싸서 isLoggedIn 상태를 전역적으로 관리
+    return (
+      <AuthProvider>
+        <HomeContent />
+      </AuthProvider>
+    );
+} 

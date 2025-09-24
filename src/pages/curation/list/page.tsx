@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
+// 실제 데이터 구조에 맞게 인터페이스를 유지하거나 수정합니다.
 interface Book {
   id: string;
   title: string;
@@ -29,16 +29,25 @@ interface Curation {
   isLiked: boolean;
 }
 
-const CATEGORIES = [
-  { id: 'all', name: '전체', count: 127 },
-  { id: 'novel', name: '소설', count: 32 },
-  { id: 'essay', name: '에세이', count: 24 },
-  { id: 'self-development', name: '자기계발', count: 18 },
-  { id: 'business', name: '비즈니스', count: 15 },
-  { id: 'history', name: '역사', count: 12 },
-  { id: 'philosophy', name: '철학', count: 9 },
-  { id: 'science', name: '과학', count: 10 },
-  { id: 'art', name: '예술', count: 7 }
+// API 응답에 페이지 정보가 포함될 경우를 대비한 인터페이스
+interface ApiPaginatedResponse<T> {
+  data: T[];
+  totalPages: number;
+  totalCount: number;
+  currentPage: number;
+  hasMore: boolean;
+}
+
+// API를 통해 받아올 데이터들 (임시로 비워둠)
+const CATEGORIES: { id: string, name: string }[] = [
+  // 예시: { id: 'all', name: '전체' }
+  // 이 부분은 API를 통해 동적으로 채워야 합니다.
+];
+const TAGS: string[] = [
+  // 이 부분도 API를 통해 동적으로 채울 수 있습니다.
+];
+const MOCK_CURATORS: Curator[] = [
+    // 이 부분도 API를 통해 동적으로 채울 수 있습니다.
 ];
 
 const SORT_OPTIONS = [
@@ -48,196 +57,60 @@ const SORT_OPTIONS = [
   { id: 'oldest', name: '오래된순' }
 ];
 
-const TAGS = [
-  '베스트셀러', '추천도서', '신간', '고전', '화제작', '장편', '단편', 
-  '실용서', '인문학', '심리학', '경제', '투자', '창업', '리더십',
-  '한국사', '세계사', '철학입문', '현대철학', '물리학', '생물학',
-  '미술', '음악', '영화', '문학', '시집'
-];
-
-const mockCurators: Curator[] = [
-  {
-    id: '1',
-    name: '김서현',
-    avatar: 'https://readdy.ai/api/search-image?query=professional%20female%20book%20curator%20profile%20photo%2C%20friendly%20smile%2C%20warm%20lighting%2C%20studio%20portrait%2C%20modern%20aesthetic%2C%20clean%20background&width=60&height=60&seq=curator1&orientation=squarish',
-    followersCount: 1247
-  },
-  {
-    id: '2', 
-    name: '이준호',
-    avatar: 'https://readdy.ai/api/search-image?query=professional%20male%20book%20curator%20profile%20photo%2C%20intellectual%20look%2C%20glasses%2C%20warm%20lighting%2C%20studio%20portrait%2C%20modern%20aesthetic%2C%20clean%20background&width=60&height=60&seq=curator2&orientation=squarish',
-    followersCount: 892
-  },
-  {
-    id: '3',
-    name: '박미영',
-    avatar: 'https://readdy.ai/api/search-image?query=professional%20female%20librarian%20profile%20photo%2C%20kind%20expression%2C%20natural%20lighting%2C%20studio%20portrait%2C%20modern%20aesthetic%2C%20clean%20background&width=60&height=60&seq=curator3&orientation=squarish',
-    followersCount: 2156
-  },
-  {
-    id: '4',
-    name: '정현우',
-    avatar: 'https://readdy.ai/api/search-image?query=young%20male%20book%20enthusiast%20profile%20photo%2C%20casual%20style%2C%20friendly%20smile%2C%20natural%20lighting%2C%20studio%20portrait%2C%20modern%20aesthetic%2C%20clean%20background&width=60&height=60&seq=curator4&orientation=squarish',
-    followersCount: 634
-  }
-];
-
-const generateMockCurations = (count: number): Curation[] => {
-  const curations: Curation[] = [];
-  const categories = ['novel', 'essay', 'self-development', 'business', 'history', 'philosophy', 'science', 'art'];
-  
-  for (let i = 1; i <= count; i++) {
-    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-    const randomCurator = mockCurators[Math.floor(Math.random() * mockCurators.length)];
-    const randomTags = TAGS.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 4) + 1);
-    
-    curations.push({
-      id: i.toString(),
-      title: getCurationTitle(randomCategory, i),
-      description: getCurationDescription(randomCategory, i),
-      curator: randomCurator,
-      books: generateMockBooks(Math.floor(Math.random() * 3) + 3),
-      tags: randomTags,
-      category: randomCategory,
-      likes: Math.floor(Math.random() * 500) + 10,
-      createdAt: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
-      isLiked: Math.random() > 0.7
-    });
-  }
-  
-  return curations;
-};
-
-const getCurationTitle = (category: string, index: number): string => {
-  const titles = {
-    novel: [
-      '마음을 울리는 현대 소설 5선',
-      '밤을 새며 읽은 추리소설들',
-      '삶의 의미를 찾게 해준 문학작품',
-      '첫사랑의 아픔을 그린 소설들',
-      '현실을 잊게 해주는 판타지 소설'
-    ],
-    essay: [
-      '일상의 소중함을 깨닫게 해준 에세이',
-      '혼자만의 시간을 위한 글들',
-      '여행을 떠나고 싶게 만드는 에세이',
-      '마음이 편안해지는 글 모음',
-      '삶의 지혜가 담긴 에세이집'
-    ],
-    'self-development': [
-      '20대가 읽어야 할 자기계발서',
-      '습관의 힘을 알려주는 책들',
-      '성공한 사람들의 독서법',
-      '목표 달성을 위한 필독서',
-      '자신감을 기르는 책 추천'
-    ],
-    business: [
-      '스타트업 창업자가 추천하는 책',
-      '비즈니스 전략을 배울 수 있는 도서',
-      '경영학 입문을 위한 추천도서',
-      '투자 초보자를 위한 필독서',
-      '마케팅 실무진이 읽는 책들'
-    ],
-    history: [
-      '한국사를 재미있게 배우는 책',
-      '세계사의 전환점을 다룬 도서',
-      '역사 속 인물들의 이야기',
-      '근현대사 이해를 위한 추천도서',
-      '역사를 통해 배우는 리더십'
-    ],
-    philosophy: [
-      '철학 입문자를 위한 추천도서',
-      '현대인의 고민을 다룬 철학서',
-      '동양철학의 지혜를 담은 책',
-      '삶의 의미를 찾는 철학 여행',
-      '일상 속 철학적 사유를 위한 책'
-    ],
-    science: [
-      '과학의 재미를 알려주는 책',
-      '우주와 물리학 입문서',
-      '생명과학의 신비를 다룬 도서',
-      '과학사를 통해 본 인류의 발전',
-      '미래 기술을 예측하는 과학서'
-    ],
-    art: [
-      '예술사 입문을 위한 추천도서',
-      '미술관에서 읽고 싶은 책',
-      '음악의 역사와 감상법',
-      '예술가들의 삶과 작품 이야기',
-      '현대 예술을 이해하는 가이드'
-    ]
-  };
-  
-  const categoryTitles = titles[category as keyof typeof titles] || titles.novel;
-  return categoryTitles[index % categoryTitles.length];
-};
-
-const getCurationDescription = (category: string, index: number): string => {
-  const descriptions = {
-    novel: [
-      '감정의 깊이를 탐구하는 현대 소설들을 엄선했습니다. 각각의 작품이 전하는 메시지와 문학적 완성도를 고려하여 선별했습니다.',
-      '잠 못 드는 밤, 한 번 펼치면 끝까지 읽게 되는 매력적인 추리소설들입니다. 예측할 수 없는 반전과 탄탄한 구성이 특징입니다.',
-      '인생의 의미와 가치에 대해 깊이 있게 탐구한 문학작품들을 모았습니다. 독자들에게 새로운 관점을 제시하는 책들입니다.',
-      '첫사랑의 설렘과 아픔을 섬세하게 그려낸 소설들입니다. 누구나 공감할 수 있는 감정의 이야기를 담고 있습니다.',
-      '현실의 무게에서 잠시 벗어나 상상의 나래를 펼칠 수 있는 판타지 소설들을 추천합니다.'
-    ],
-    essay: [
-      '바쁜 일상 속에서 놓치기 쉬운 소소한 행복들을 발견하게 해주는 에세이들입니다. 작가들의 따뜻한 시선이 담겨 있습니다.',
-      '혼자만의 시간을 더욱 의미 있게 만들어주는 글들을 선별했습니다. 자신과의 대화를 위한 시간을 선사합니다.',
-      '세계 각지의 여행 경험담과 문화에 대한 깊이 있는 관찰을 담은 에세이들입니다. 책 속에서 여행을 떠나보세요.',
-      '마음이 지칠 때 위로가 되고, 평온함을 찾게 해주는 글들을 모았습니다. 치유의 시간을 선사합니다.',
-      '인생의 선배들이 전하는 지혜로운 조언과 통찰이 담긴 에세이집들입니다.'
-    ]
-  };
-  
-  const categoryDescriptions = descriptions[category as keyof typeof descriptions] || descriptions.novel;
-  return categoryDescriptions[index % categoryDescriptions.length];
-};
-
-const generateMockBooks = (count: number): Book[] => {
-  const bookTitles = [
-    '완전한 행복', '시간의 향기', '마지막 편지', '바람의 노래', '별이 빛나는 밤',
-    '고요한 아침', '푸른 하늘', '따뜻한 봄날', '차가운 겨울', '뜨거운 여름',
-    '깊은 바다', '높은 산', '넓은 들판', '작은 마을', '큰 도시',
-    '빨간 장미', '하얀 눈', '검은 밤', '노란 해바라기', '보라색 꿈'
-  ];
-  
-  const authors = [
-    '김민수', '이지영', '박서준', '최유진', '정현아',
-    '강도윤', '윤서영', '임재현', '조민정', '한지우',
-    '송예은', '배민석', '노하늘', '오세진', '양수빈'
-  ];
-  
-  const books: Book[] = [];
-  for (let i = 0; i < count; i++) {
-    const randomTitle = bookTitles[Math.floor(Math.random() * bookTitles.length)];
-    const randomAuthor = authors[Math.floor(Math.random() * authors.length)];
-    
-    books.push({
-      id: `book-${Date.now()}-${i}`,
-      title: randomTitle,
-      author: randomAuthor,
-      cover: `https://readdy.ai/api/search-image?query=beautiful%20book%20cover%20design%2C%20$%7BrandomTitle.toLowerCase%28%29%7D%20theme%2C%20modern%20typography%2C%20elegant%20layout%2C%20professional%20publishing%20design%2C%20clean%20aesthetic&width=120&height=180&seq=book${Date.now()}${i}&orientation=portrait`
-    });
-  }
-  
-  return books;
-};
-
 const ITEMS_PER_PAGE = 12;
+
+// --- API 호출 시뮬레이션 함수 ---
+// 실제 백엔드 API로 이 함수를 교체해야 합니다.
+const fetchCurations = async (
+  page: number,
+  category: string,
+  sort: string,
+  tags: string[],
+  curators: string[],
+  query: string
+): Promise<ApiPaginatedResponse<Curation>> => {
+  console.log('Fetching data with params:', { page, category, sort, tags, curators, query });
+  
+  // 여기에 실제 API 호출 로직을 구현합니다. (예: axios.get, fetch)
+  // const response = await axios.get('/api/curations', { 
+  //   params: { page, limit: ITEMS_PER_PAGE, category, sort, tags, curators, q: query } 
+  // });
+  // return response.data;
+
+  // --- 아래는 API 호출을 시뮬레이션하는 예시 코드입니다. ---
+  return new Promise(resolve => {
+    setTimeout(() => {
+      // 실제로는 API 응답 데이터를 반환합니다.
+      // 지금은 빈 배열과 기본 페이지 정보를 반환합니다.
+      resolve({
+        data: [], // response.data.curations
+        totalPages: 0, // response.data.totalPages
+        totalCount: 0, // response.data.totalCount
+        currentPage: page, // response.data.currentPage
+        hasMore: false, // response.data.hasMore
+      });
+    }, 1000); // 1초 딜레이
+  });
+};
+// --- API 호출 함수 끝 ---
+
 
 export default function CurationListPage() {
   const [curations, setCurations] = useState<Curation[]>([]);
-  const [displayedCurations, setDisplayedCurations] = useState<Curation[]>([]);
-  const [filteredCurations, setFilteredCurations] = useState<Curation[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSort, setSelectedSort] = useState('popular');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCurators, setSelectedCurators] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  
   const [isInfiniteScroll, setIsInfiniteScroll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   
@@ -248,117 +121,67 @@ export default function CurationListPage() {
     if (observer.current) observer.current.disconnect();
     observer.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasMore && isInfiniteScroll) {
-        loadMoreCurations();
+        setCurrentPage(prevPage => prevPage + 1);
       }
     });
     if (node) observer.current.observe(node);
   }, [loading, hasMore, isInfiniteScroll]);
 
-  useEffect(() => {
-    const mockData = generateMockCurations(80);
-    setCurations(mockData);
-  }, []);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [curations, selectedCategory, selectedSort, selectedTags, selectedCurators, searchQuery]);
-
-  useEffect(() => {
-    if (isInfiniteScroll) {
-      setDisplayedCurations(filteredCurations.slice(0, ITEMS_PER_PAGE));
-      setCurrentPage(1);
-      setHasMore(filteredCurations.length > ITEMS_PER_PAGE);
-    } else {
-      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      setDisplayedCurations(filteredCurations.slice(startIndex, endIndex));
-    }
-  }, [filteredCurations, currentPage, isInfiniteScroll]);
-
-  const applyFiltersAndSort = () => {
-    let filtered = [...curations];
-
-    // 카테고리 필터
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(curation => curation.category === selectedCategory);
-    }
-
-    // 검색 필터
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(curation => 
-        curation.title.toLowerCase().includes(query) ||
-        curation.description.toLowerCase().includes(query) ||
-        curation.curator.name.toLowerCase().includes(query) ||
-        curation.tags.some(tag => tag.toLowerCase().includes(query))
-      );
-    }
-
-    // 태그 필터
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter(curation =>
-        selectedTags.every(tag => curation.tags.includes(tag))
-      );
-    }
-
-    // 큐레이터 필터
-    if (selectedCurators.length > 0) {
-      filtered = filtered.filter(curation =>
-        selectedCurators.includes(curation.curator.id)
-      );
-    }
-
-    // 정렬
-    filtered.sort((a, b) => {
-      switch (selectedSort) {
-        case 'latest':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case 'oldest':
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        case 'likes':
-          return b.likes - a.likes;
-        case 'popular':
-        default:
-          return (b.likes + Math.random() * 100) - (a.likes + Math.random() * 100);
-      }
-    });
-
-    setFilteredCurations(filtered);
-    setCurrentPage(1);
-  };
-
-  const loadMoreCurations = () => {
-    if (loading || !hasMore) return;
-    
+  // 데이터 로드 로직
+  const loadCurations = useCallback(async (page: number, isLoadMore = false) => {
     setLoading(true);
-    setTimeout(() => {
-      const nextPageStart = displayedCurations.length;
-      const nextPageEnd = nextPageStart + ITEMS_PER_PAGE;
-      const nextItems = filteredCurations.slice(nextPageStart, nextPageEnd);
+    setError(null);
+    try {
+      const response = await fetchCurations(
+        page,
+        selectedCategory,
+        selectedSort,
+        selectedTags,
+        selectedCurators,
+        searchQuery
+      );
       
-      if (nextItems.length > 0) {
-        setDisplayedCurations(prev => [...prev, ...nextItems]);
-        setHasMore(nextPageEnd < filteredCurations.length);
+      if (isLoadMore) {
+        setCurations(prev => [...prev, ...response.data]);
       } else {
-        setHasMore(false);
+        setCurations(response.data);
       }
+      
+      setTotalPages(response.totalPages);
+      setTotalCount(response.totalCount);
+      setHasMore(response.hasMore);
+
+    } catch (err) {
+      setError('데이터를 불러오는 데 실패했습니다.');
+      console.error(err);
+    } finally {
       setLoading(false);
-    }, 500);
-  };
+    }
+  }, [selectedCategory, selectedSort, selectedTags, selectedCurators, searchQuery]);
+
+  // 필터, 정렬, 검색어 변경 시 첫 페이지부터 다시 로드
+  useEffect(() => {
+    setCurrentPage(1);
+    setCurations([]); // 기존 목록 초기화
+    loadCurations(1);
+  }, [selectedCategory, selectedSort, selectedTags, selectedCurators, searchQuery]);
+
+  // 페이지 변경(페이지네이션, 무한스크롤) 시 데이터 로드
+  useEffect(() => {
+    if (currentPage > 1) {
+      loadCurations(currentPage, isInfiniteScroll);
+    }
+  }, [currentPage, isInfiniteScroll, loadCurations]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev =>
-      prev.includes(tag)
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
   };
 
   const toggleCurator = (curatorId: string) => {
     setSelectedCurators(prev =>
-      prev.includes(curatorId)
-        ? prev.filter(id => id !== curatorId)
-        : [...prev, curatorId]
+      prev.includes(curatorId) ? prev.filter(id => id !== curatorId) : [...prev, curatorId]
     );
   };
 
@@ -367,11 +190,13 @@ export default function CurationListPage() {
     setSelectedTags([]);
     setSelectedCurators([]);
     setSearchQuery('');
+    setSelectedSort('popular');
   };
 
-  const totalPages = Math.ceil(filteredCurations.length / ITEMS_PER_PAGE);
-
-  const toggleLike = (curationId: string) => {
+  // '좋아요' 토글 함수 (API 연동 필요)
+  const toggleLike = async (curationId: string) => {
+    // Optimistic UI Update
+    const originalCurations = [...curations];
     setCurations(prev =>
       prev.map(curation => {
         if (curation.id === curationId) {
@@ -384,6 +209,16 @@ export default function CurationListPage() {
         return curation;
       })
     );
+
+    try {
+      // 실제 API 호출 로직
+      // await api.post(`/curations/${curationId}/like`);
+    } catch (error) {
+      console.error('Like toggle failed:', error);
+      // 실패 시 원래 상태로 복원
+      setCurations(originalCurations);
+      alert('좋아요 처리에 실패했습니다.');
+    }
   };
 
   return (
@@ -429,8 +264,18 @@ export default function CurationListPage() {
         {/* Controls */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            {/* Category Filter */}
+            {/* Category Filter (API로 동적 렌더링 필요) */}
             <div className="flex flex-wrap gap-2">
+              <button 
+                onClick={() => setSelectedCategory('all')}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedCategory === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+              >
+                전체
+              </button>
               {CATEGORIES.map(category => (
                 <button
                   key={category.id}
@@ -441,7 +286,7 @@ export default function CurationListPage() {
                       : 'bg-white text-gray-600 hover:bg-gray-100'
                   }`}
                 >
-                  {category.name} ({category.id === 'all' ? filteredCurations.length : category.count})
+                  {category.name}
                 </button>
               ))}
             </div>
@@ -495,7 +340,7 @@ export default function CurationListPage() {
           </div>
         </div>
 
-        {/* Advanced Filters */}
+        {/* Advanced Filters (API로 동적 렌더링 필요) */}
         {showFilters && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -532,7 +377,7 @@ export default function CurationListPage() {
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">큐레이터</h4>
               <div className="flex flex-wrap gap-3">
-                {mockCurators.map(curator => (
+                {MOCK_CURATORS.map(curator => (
                   <button
                     key={curator.id}
                     onClick={() => toggleCurator(curator.id)}
@@ -559,24 +404,52 @@ export default function CurationListPage() {
         {/* Results Count */}
         <div className="mb-6">
           <p className="text-gray-600">
-            총 <span className="font-semibold text-gray-900">{filteredCurations.length}</span>개의 큐레이션
+            총 <span className="font-semibold text-gray-900">{totalCount}</span>개의 큐레이션
             {searchQuery && (
               <span> | 검색어: <span className="font-semibold">"{searchQuery}"</span></span>
             )}
           </p>
         </div>
 
+        {/* 로딩 및 에러 상태 표시 */}
+        {loading && curations.length === 0 && (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center gap-2 text-gray-600">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              큐레이션을 불러오는 중...
+            </div>
+          </div>
+        )}
+        {error && (
+            <div className="text-center py-12 text-red-500">
+                <i className="ri-error-warning-line text-4xl mb-4"></i>
+                <p>{error}</p>
+            </div>
+        )}
+
         {/* Curation Grid */}
-        {displayedCurations.length > 0 ? (
+        {!loading && curations.length === 0 && !error ? (
+          <div className="text-center py-12">
+            <i className="ri-search-line text-4xl text-gray-400 mb-4"></i>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">검색 결과가 없습니다</h3>
+            <p className="text-gray-600 mb-4">다른 검색어나 필터를 시도해보세요</p>
+            <button
+              onClick={resetFilters}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              필터 초기화
+            </button>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-            {displayedCurations.map((curation, index) => (
+            {curations.map((curation, index) => (
               <div
-                key={curation.id}
-                ref={index === displayedCurations.length - 1 ? lastCurationElementRef : null}
+                key={`${curation.id}-${index}`}
+                ref={index === curations.length - 1 ? lastCurationElementRef : null}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
               >
-                {/* Book Covers */}
-                <div className="relative h-48 bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+                 {/* Book Covers */}
+                 <div className="relative h-48 bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
                   <div className="flex items-center justify-center h-full">
                     <div className="flex gap-2">
                       {curation.books.slice(0, 3).map((book, bookIndex) => (
@@ -661,26 +534,14 @@ export default function CurationListPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <i className="ri-search-line text-4xl text-gray-400 mb-4"></i>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">검색 결과가 없습니다</h3>
-            <p className="text-gray-600 mb-4">다른 검색어나 필터를 시도해보세요</p>
-            <button
-              onClick={resetFilters}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              필터 초기화
-            </button>
-          </div>
         )}
-
+        
         {/* Pagination */}
-        {!isInfiniteScroll && filteredCurations.length > 0 && (
+        {!isInfiniteScroll && totalPages > 1 && (
           <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || loading}
               className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               <i className="ri-arrow-left-line"></i>
@@ -688,22 +549,11 @@ export default function CurationListPage() {
             </button>
             
             <div className="flex gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNumber;
-                if (totalPages <= 5) {
-                  pageNumber = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNumber = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNumber = totalPages - 4 + i;
-                } else {
-                  pageNumber = currentPage - 2 + i;
-                }
-                
-                return (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNumber => (
                   <button
                     key={pageNumber}
                     onClick={() => setCurrentPage(pageNumber)}
+                    disabled={loading}
                     className={`w-10 h-10 rounded-lg ${
                       currentPage === pageNumber
                         ? 'bg-blue-600 text-white'
@@ -712,13 +562,12 @@ export default function CurationListPage() {
                   >
                     {pageNumber}
                   </button>
-                );
-              })}
+              ))}
             </div>
             
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || loading}
               className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               다음
@@ -728,7 +577,7 @@ export default function CurationListPage() {
         )}
 
         {/* Infinite Scroll Loading */}
-        {isInfiniteScroll && loading && (
+        {isInfiniteScroll && loading && curations.length > 0 && (
           <div className="text-center py-8">
             <div className="inline-flex items-center gap-2 text-gray-600">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
@@ -738,7 +587,7 @@ export default function CurationListPage() {
         )}
 
         {/* No More Items */}
-        {isInfiniteScroll && !hasMore && displayedCurations.length > 0 && (
+        {isInfiniteScroll && !hasMore && curations.length > 0 && (
           <div className="text-center py-8">
             <p className="text-gray-600">모든 큐레이션을 확인했습니다</p>
           </div>
